@@ -20,6 +20,9 @@ type prefixFS struct {
 
 // Open opens the named file for reading.
 func (f prefixFS) Open(name string) (fs.File, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: os.ErrInvalid}
+	}
 	name = strings.Trim(name, "/")
 	if name == "." || name == f.prefix {
 		fl := file{
@@ -32,18 +35,16 @@ func (f prefixFS) Open(name string) (fs.File, error) {
 		}
 		return fl, nil
 	}
-	ps := f.prefix + "/"
-
 	if len(name) > len(f.prefix) {
-		n := strings.TrimPrefix(name, ps)
+		n := strings.TrimPrefix(name, f.prefix+"/")
 		if len(n) == len(name) {
-			return nil, os.ErrNotExist
+			return nil, &fs.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
 		}
 		return f.fs.Open(n)
 	}
 	n := strings.TrimPrefix(f.prefix, name+"/")
 	if len(n) == len(f.prefix) {
-		return nil, os.ErrNotExist
+		return nil, &fs.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
 	}
 	fl := file{
 		fileInfo: fileInfo{
@@ -59,6 +60,9 @@ func (f prefixFS) Open(name string) (fs.File, error) {
 // ReadDir reads the named directory if the path is part of the prefix it will
 // return a single entry with next suffix parts.
 func (f prefixFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: os.ErrInvalid}
+	}
 	name = strings.Trim(name, "/")
 	if name == "." {
 		p := strings.SplitN(f.prefix, "/", 2)
@@ -79,14 +83,14 @@ func (f prefixFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	if len(name) > len(f.prefix) {
 		n := strings.TrimPrefix(name, f.prefix+"/")
 		if len(n) == len(name) {
-			return nil, os.ErrNotExist
+			return nil, &fs.PathError{Op: "readdir", Path: name, Err: os.ErrNotExist}
 		}
 		return fs.ReadDir(f.fs, n)
 	}
 
 	n := strings.TrimPrefix(f.prefix, name+"/")
 	if len(n) == len(f.prefix) {
-		return nil, os.ErrNotExist
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: os.ErrNotExist}
 	}
 
 	p := strings.SplitN(n, "/", 2)

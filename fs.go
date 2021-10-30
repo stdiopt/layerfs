@@ -1,7 +1,6 @@
 package layerfs
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"strings"
@@ -22,19 +21,18 @@ func (f *FS) Mount(prefix string, ffs fs.FS) {
 // ReadDir reads the named directory from last the fs to first, the latest dir
 // entry prevails.
 func (f FS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: os.ErrInvalid}
+	}
 	name = strings.Trim(name, "/")
 	entries := entrySet{}
-	found := false
 	for i := len(f) - 1; i >= 0; i-- {
 		ee, err := fs.ReadDir(f[i], name)
 		if err != nil {
 			continue
 		}
-		found = true
+		// found = true
 		entries.Set(ee...)
-	}
-	if !found {
-		return nil, fmt.Errorf("readdir %v error: %w", name, os.ErrNotExist)
 	}
 	return entries.list, nil
 }
@@ -42,6 +40,9 @@ func (f FS) ReadDir(name string) ([]fs.DirEntry, error) {
 // Open opens the named file from the last fs to first, the latest file
 // prevails.
 func (f FS) Open(name string) (fs.File, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: os.ErrInvalid}
+	}
 	name = strings.Trim(name, "/")
 	for i := len(f) - 1; i >= 0; i-- {
 		fl, err := f[i].Open(name)
@@ -49,5 +50,5 @@ func (f FS) Open(name string) (fs.File, error) {
 			return fl, nil
 		}
 	}
-	return nil, fmt.Errorf("layer.open: %v: %w", name, os.ErrNotExist)
+	return nil, &fs.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
 }
